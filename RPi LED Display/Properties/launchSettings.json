@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "RPi LED Display": {
+      "commandName": "Project",
+      "remoteDebugEnabled": false,
+      "remoteDebugMachine": "192.168.11.245",
+      "authenticationMode": "None"
+    }
+  }
+}
