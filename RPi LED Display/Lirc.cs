@@ -67,18 +67,18 @@ namespace RPi_LED_Display
         string lircSocketName = "/run/lirc/lircd";
         Socket senderSocket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
         UnixDomainSocketEndPoint unixEp;
-        Thread commandResultThread;
-        bool commandComplete = true;
-        bool receiving = false;
+        Thread commandSenderThread;
+        bool sendingCommand;
+        public bool IsBusy { get { return sendingCommand; } }
         public IrSender()
         {
             unixEp = new UnixDomainSocketEndPoint(lircSocketName);
             senderSocket.Connect(unixEp);
             senderSocket.ReceiveTimeout = 0;
-            senderSocket.SendTimeout = 250;
-            commandResultThread = new Thread(new ThreadStart(receiverThread));
-            commandResultThread.Name = "CommandResultThread";
-            commandResultThread.Start();
+            senderSocket.SendTimeout = 0;
+            commandSenderThread = new Thread(new ThreadStart(senderThread));
+            commandSenderThread.Name = "CommandSenderThread";
+            commandSenderThread.Start();
             
             //SendCommand(Keys.Power, Remotes.Jumbo, 500);
         }
@@ -87,7 +87,7 @@ namespace RPi_LED_Display
 
         public enum Remotes{ Jumbo, RCA }
 
-        private void receiverThread()
+        private void senderThread()
         {
             int count = 0;
             int byteReceived = 0;
@@ -96,26 +96,18 @@ namespace RPi_LED_Display
             {
                 try
                 {
-                    //if (senderSocket.Poll(100, SelectMode.SelectRead))
-                    if(commandComplete == false)
+                    while (sendingCommand)
                     {
-                        Thread.Sleep(50);
-                        byte[] bytes = new byte[500];
-                        receiving = true;
-                        byteReceived = senderSocket.Receive(bytes);
-                        receiving = false;
-                        message = Encoding.ASCII.GetString(bytes);
-                        count += 1;
-                        Console.WriteLine(message + "\n" + count.ToString());
-                        string[] splitedMessage = message.Split('\n');
-                        if(splitedMessage[3] == "END")
+                        if (senderSocket.Poll(1000, SelectMode.SelectRead))
                         {
-                            commandComplete = true;
-                        }
-                        else
-                        {
-                            senderSocket.Send(Encoding.ASCII.GetBytes("\n"));
-                            commandComplete = true;
+                            Thread.Sleep(100);
+                            byte[] bytes = new byte[500];
+                            byteReceived = senderSocket.Receive(bytes);
+                            message = Encoding.ASCII.GetString(bytes);
+                            count += 1;
+                            Console.WriteLine(message + "\n" + count.ToString());
+                            string[] splitedMessage = message.Split('\n');
+                            sendingCommand = false;
                         }
                     }
                 }
@@ -123,14 +115,11 @@ namespace RPi_LED_Display
                 {
                     Console.WriteLine(ex.Message);
                 }
-                Thread.Sleep(100);
             }
         }
 
         public void SendCommand(Keys key, Remotes remote, int count)
         {
-            if (!senderSocket.Connected)
-                senderSocket.Connect(unixEp);
             string command = "";
             string rem = "";
             switch (remote)
@@ -249,25 +238,17 @@ namespace RPi_LED_Display
             }
             if(command != string.Empty)
             {
-                //command = "SEND_ONCE Jumbo Power 600 \n";
                 try
-                {
-                    if (commandComplete)
+                {                        
+                    if (senderSocket.Poll(100, SelectMode.SelectWrite))
                     {
-                        //commandComplete = false;
-                        if (senderSocket.Poll(100, SelectMode.SelectWrite))
-                        {
-                            int byteSent = 0;
-                            byteSent = senderSocket.Send(Encoding.ASCII.GetBytes(command));
-                            commandComplete = false;
-                        }
-                    }
-                    else if(receiving == true && commandComplete == false)
-                    {
-                        senderSocket.Send(Encoding.ASCII.GetBytes("\n"));
+                        int byteSent = 0;
+                        byte[] bytes = Encoding.ASCII.GetBytes(command);
+                        byteSent = senderSocket.Send(bytes, 0, bytes.Length, SocketFlags.None);
+                        sendingCommand = true;
                     }
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     Console.WriteLine(ex.Message);
                 }

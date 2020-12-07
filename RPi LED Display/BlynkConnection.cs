@@ -36,6 +36,10 @@ namespace RPi_LED_Display
         private void Blynk_VirtualPinReceived(Blynk b, VirtualPinEventArgs e)
         {
             VirtualPin vp;
+            while (irSender.IsBusy)
+            {
+                Thread.Sleep(10);
+            }
             try
             {
                 if(e.Data.Value[0].GetType() == typeof(string))
@@ -51,12 +55,9 @@ namespace RPi_LED_Display
                                 vp.Value[0] = "0.0";
                                 blynk.SendVirtualPin(vp);
                                 if (value == 1)
-                                {
                                     irSender.SendCommand(IrSender.Keys.VolumeUp, IrSender.Remotes.Jumbo, 1);
-                                }
                                 else if (value == -1)
                                     irSender.SendCommand(IrSender.Keys.VolumeDown, IrSender.Remotes.Jumbo, 1);
-                                Thread.Sleep(250);
                                 break;
                             default:
                                break;
@@ -67,10 +68,10 @@ namespace RPi_LED_Display
                     switch ((int)e.Data.Pin)
                     {
                         case 0:
-                            irSender.SendCommand(IrSender.Keys.Power, IrSender.Remotes.Jumbo, 10);
+                            irSender.SendCommand(IrSender.Keys.Power, IrSender.Remotes.Jumbo, 1);
                             break;
                         case 1:
-                            irSender.SendCommand(IrSender.Keys.Input, IrSender.Remotes.Jumbo, 5);
+                            irSender.SendCommand(IrSender.Keys.Input, IrSender.Remotes.Jumbo, 1);
                             break;
                         case 2:
 
@@ -85,6 +86,7 @@ namespace RPi_LED_Display
                 Console.WriteLine(ex.Message);
                 
             }
+            Thread.Sleep(100);
         }
 
         private void Blynk_DigitalPinReceived(Blynk b, DigitalPinEventArgs e)

@@ -12,6 +12,8 @@ namespace RPi_LED_Display
         static BlynkConnection blynk;
         static void Main(string[] args)
         {
+            Thread blynkThread = new Thread(new ThreadStart(blynkWorker));
+            blynkThread.Name = "blynkThread";
             Console.Clear();
             Console.WriteLine("Press a key to start!");
             Console.ReadKey();
@@ -26,9 +28,8 @@ namespace RPi_LED_Display
                 Console.WriteLine(string.Format("I2C Address is {0}", I2CAddress.ToString()));
                 I2cDevice I2c = I2cDevice.Create(settings);
                 lcdScreen = new Lcd1602(I2c, false);
+                blynkThread.Start();
                 irReceiver.Start();
-                blynk = new BlynkConnection();
-                //irSender.SendCommand(IrSender.Keys.Power, IrSender.Remotes.Jumbo, 10);
             }
             catch (Exception ex)
             {
@@ -44,6 +45,10 @@ namespace RPi_LED_Display
             lcdScreen.Write(e.KeyCode);
             lcdScreen.SetCursorPosition(0, 1);
             lcdScreen.Write(e.RemoteName);
+        }
+        static private void blynkWorker()
+        {
+            blynk = new BlynkConnection();
         }
 
     }
